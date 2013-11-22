@@ -1,0 +1,176 @@
+\documentclass{article}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{braket}
+\usepackage{xyling}
+\usepackage{synttree}
+\usepackage{algorithm2e}
+
+\newcommand{\beq}{\begin{equation}}
+\newcommand{\eneq}{\end{equation}}
+\newcommand{\beqnn}{\begin{equation*}}
+\newcommand{\eneqnn}{\end{equation*}}
+\newcommand{\beqy}{\begin{eqnarray}}
+\newcommand{\eneqy}{\end{eqnarray}}
+\newcommand{\beqynn}{\begin{eqnarray*}}
+\newcommand{\eneqynn}{\end{eqnarray*}}
+\newcommand{\bseq}{\begin{subequations}}
+\newcommand{\enseq}{\end{subequations}}
+\newcommand{\pauli}[2]{\sigma_{#1}^{#2}}
+
+\begin{document}
+\title{Hybrid MPI CUDA N-Qubit Simulation}
+\author{Christopher M. Cantwell \and Jose Gonzalez}
+\maketitle
+
+\section{Introduction}
+
+\section{Quantum State Evolution}
+
+\section{Parallelization}
+\subsection{Step Matrix}
+Given the unitary evolution operator $U(t)=e^{-iHt}$ a quantum state evolves as $\ket{\psi(t+\Delta t)}=U(\Delta t)\ket{\psi(t)}$.  We use a time symmetric representation and expand the exponential to first order in order to solve for a step matrix $S$.
+\begin{subequations}
+\beqy
+(I+i H\frac{\Delta t}{2})\ket{\psi(t+\Delta t)}&=&(I-i H\frac{\Delta t}{2})\ket{\psi(t)} \\
+\ket{\psi(t+\Delta t)}&=&(I+i H\frac{\Delta t}{2})^{-1}(I-i H\frac{\Delta t}{2})\ket{\psi(t)}
+\eneqy
+\end{subequations}
+Thus we see that $S=(I-i H\frac{\Delta t}{2})^{-1}(I+i H\frac{\Delta t}{2})$ which can be solved by using LU decomposition.
+\begin{subequations}
+\beqy
+(I-i H\frac{\Delta t}{2})S&=&(I+i H\frac{\Delta t}{2})\\
+(I-i H\frac{\Delta t}{2})=LU &,& (I+i H\frac{\Delta t}{2})=B\\
+LUS&=&B\\
+LY&=&B\\
+US&=&Y
+\eneqy
+\end{subequations}
+So we need to parallellize three tasks.  First decompose $(I-i H\frac{\Delta t}{2})$ into $LU$.  Second solve $LY=B$ for $Y$. And finally solve $US=Y$ for $S$.  So long as the Hamiltonian is time independent this only needs to be done once at he start of the program.
+\subsection{State Evolution}
+Consider the equation $Ax=b$ where $A$ is a matrix and $x$ and $b$ are vectors.  We can divide the matrix and vectors into blocks as follows:
+\beq
+\left( \begin{array}{c|c} 
+A_{11} & A_{12} \\ \hline 
+A_{21} & A_{22} 
+\end{array} \right)	\left( \begin{array}{c} 
+x_{1}\\ \hline 
+x_{2} \end{array} \right) =	\left(\begin{array}{c}
+b_{1}\\ \hline 
+b_{2}\end{array}\right)
+\eneq
+We can see clearly that
+\begin{subequations}
+\beqy
+b_{1}=A_{11}x_{1}+A_{12}x_{2}\\
+b_{2}=A_{21}x_{1}+A_{22}x_{2}
+\eneqy
+\end{subequations}
+This can be parallellized by dividing it into four process, each calculating one of the matrix-vector products from the above equations.  Subdividing again leads to a natural tree structure.
+%Needs to be formatted to look nice and be more informative.
+\begin{figure}[h]\center
+\synttree[0[1[5][6][7][8]][2[9][10][11][12]][3[13][14][15][16]][4[17][18][19][20]]]
+\end{figure}
+For an N qubit system vector $x$ has $2^{N}$ elements.  At each level we divide the vector into two equal size blocks.  Thus at level $l$ the vector has $2^{N-l}$ elements.  For efficiency we want this vector and the matrix it is being multiplied by to fit in the memory available on the GPU.  The Nvidia Kepler K20 has 5G of on chip memory. Assume a dense matrix and vector with complex double precision elements.  We need 16 bytes to represent a single element.  To store $A$, $x$, and $b$ at level $l$ we need $2^{2(N-l)}+2^{N-l+1}$ elements which gives us 
+\beqnn
+(2^{2(N-L)}+2^{N-L+1}) elements \times 2^{4} \frac{bytes}{element} = 2^{2(N-L)+4}+2^{N-L+5} bytes
+\eneqnn
+To determine the number of levels we must go to for the data to fit in GPU memory we have:
+\beqynn
+2^{2(N-L)+4}+2^{N-L+5} & \leq & 5\times 10^{6} \\
+Log_{2}(2^{2(N-L)+4}+2^{N-L+5}) & \leq & Log_{2}(5\times 10^{6}) \\
+Log_{2}(2^{N-L+5}(2^{2(N-L)+4-(N-L+5)}+1)) & \leq & \frac{Log_{10}(5\times 10^{6})}{Log_{10}(2)}\\
+2^{N-L-1}+1 < 2^{N-L} &and& \frac{1}{Log_{10}(2)} < \frac{1}{0.3}\\
+Log_{2}(2^{N-L+5})+Log_{2}(2^{N-L}) & \leq & \frac{1}{0.3}\times(Log_{10}(5)+Log_{10}(10^{6}))\\
+N-L+5+N-L & \leq & \frac{1}{0.3}\times(Log_{10}(5)+Log_{10}(10^{6})) \\
+2N-2L+5 & \leq & \frac{1}{0.3}\times(0.7+6) \\
+2N-2L+5 & \leq & 22.3 \\
+2L & \geq & 2N + 5 - 22.3 \\
+L & \geq & N - 8.7 \\
+L & \geq & N - 8
+\eneqynn
+This gives us a total number of processes of
+\beq
+T_{P}=\sum\limits_{l=0}^{N-7}4^{l}
+\eneq
+\section{The Algorithm}
+\begin{algorithm}[H]
+calculate $L$, total number of levels in the tree, based on GPU memory size\;
+calculate $M$, max level for parallel processing, based on number of nodes\;
+initialize id\;
+iniitialize nsteps\;
+$step \leftarrow 0$\;
+$U[0:4^{L-M}] \leftarrow$ submatrix indices to be used for state evolution\;
+\If{$(id == 0)$}{
+	$initialize(state)$\;
+}
+\While{$step \neq nsteps$}{
+	$l \leftarrow 0$\;
+	\While{$(l \neq M)$}{
+		\eIf{$(master)$}{
+			$children[0:2] \leftarrow$ MPI communicator subgroup\;
+			$p[0:3] \leftarrow partition(state,4)$\;
+			$send(p,children)$\;
+		}{
+			$state \leftarrow receive(parent)$;
+		}
+		$l++$\;
+	}
+	$s[0:4^{L-M}] \leftarrow partition(state,4^{L-M})$\;
+	$n \leftarrow 0$\;
+	\While{$(n \neq 4^{L-M})$}{
+		$s[n] \leftarrow gpu\_mv\_mult(U[n],s[n])$\;
+		$n++$\;
+	}
+	\While{$(n \neq 4^{M})$}{
+		$state \leftarrow recombine(s[n],s[n-1],s[n-2],s[n-3])$\;
+		$n \leftarrow n-4$\;
+	}
+	\While{$l \neq 0$}{
+		\eIf{$master$}{
+			$s[1] \leftarrow receive(children[1])$\;
+			$s[2] \leftarrow receive(children[2])$\;
+			$s[3] \leftarrow receive(children[3])$\;
+			$state \leftarrow recombine(s[0],s[1],s[2],s[3])$\;
+			$send(state,parent)$\;
+		}{
+			$send(state,master)$\;
+		}
+		$l--$\;
+	}
+	$step++$\;
+}
+\end{algorithm}
+
+\section{Speed Up}
+\section{Results}
+\section{Scratch}
+Consider a general two-local Hamiltonian $H$ acting on N qubits, labelled $S=\{0\ldots N-1\}$, in an arbitrary superposition state $\ket{\psi}$.
+\beqy
+\label{H0}H&=&\sum\limits_{i=0}^{N-1}(h_i+\sum\limits_{j\neq i}^{N-1}h_{ij})\\
+\label{S0}\ket{\psi}&=&\sum\limits_{j=0}^{2^{N}-1} a_{j} \ket{j}
+\eneqy
+where $\ket{j}= \ket{j_{N-1}\ldots j_0}$ and $j_{k}=0,1$.  We divide the qubits into two subsets, $S^{(1)}=\{0\ldots m-1\}$ and $S^{(2)}=\{m\ldots N-1\}$.  This gives us
+\bseq
+\beqy
+\ket{j} &=& \ket{j_{N-1}\ldots j_{m}}\ket{j_{m-1}\ldots j_{0}}\\
+\ket{j} &=& \ket{l_{j}^{(2)}}\ket{l_{j}^{(1)}}
+\eneqy
+\enseq
+It is easy to see that for a given $j$, $l_{j}^{(1)}=(j\mod{2^{m}})$ and $l_{j}^{(2)}=floor(j/2^{m})$. Using these definitions we write
+\bseq
+\beqy
+\forall k\in [0,2^{m}-1]: l_{k}^{(1)}=l_{2^{m}+k}^{(1)}=\ldots =l_{2^{N-m-1}2^{m}+k}^{(1)}\equiv k^{(1)}\\
+l_{0}^{(2)}=l_{1}^{(2)}=\ldots =l_{2^{m-1}}
+\eneqy
+\enseq
+%Substituting into ($\ref{S0}$) and expanding the summation we get
+%\beq
+%\ket{\psi}=a_{0}\ket{l_{0}^{(2)}}\ket{l_{0}^{(1)}} + a_{1}\ket{l_{1}^{(2)}}\ket{l_{1}^{(1)}} + \ldots + a_{2^{N}-1}\ket{l_{2^{N}-1}^{(2)}}\ket{l_{2^{N}-1}^{(1)}}
+%\eneq
+
+%where $l_{j}^{(1)}=\sum\limits_{k=0}^{m-1}l_{k_{j}}^{(1)}2^{k}$ and $l_{j}^{(2)}=\sum\limits_{k=0}^{N-m}l_{k_{j}}^{(2)}2^{k}$ for $l_{k_{j}}^{(s)}=0,1$.
+
+
+\end{document}
