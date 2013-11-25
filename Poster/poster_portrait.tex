@@ -12,6 +12,7 @@
 \usepackage{url}
 \usepackage{graphicx}
 \usepackage{multicol}
+\usepackage{algorithm2e}
 
 %\usepackage{times}
 %\usepackage{helvet}
@@ -121,15 +122,30 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   \headerbox{Introduction}{name=summary,column=0}{
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-bla
+Quantum evolution has traditionally been a difficult thing to simulate on today's classical computers.  This is because the size of the Hilbert space describing a quantum system scales exponentially with the size of the system.  As an example, an ensemble of N simple two level systems (qubits) is described by a state vector of length $2^{N}$.  It is easy to see that this quickly grows to be unmanageable as we try to explore ever larger systems.  At the same time the simulation of such a system is relatively straight forward using either implicit or explicit integration methods.  For a system described by a time independent Hamiltonian the simulation can be accomplished very simply by a number of matrix-vector multiplications.  There exist a number of BLAS libraries that can accomplish this efficiently.  CUBLAS is one such library that performs the multiplication using GPU acceleration.  A major bottleneck in GPU computing is communication time thus we would be well served to attempt to fit the entire unitary evolution matrix ($U$) and state vector ($S$) into GPU memory and avoid as much communication between the CPU and GPU as possible.  For large systems this requires subdividing both $U$ and $S$ into a number of smaller components $U_{ij}$ and $S_{i}$.  The resulting method of solving for $S' = U * S$ lends itself nicely to parallelization using MPI.
 }
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \headerbox{Problem Statement}{name=problem,column=0,below=summary}{
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Matrix-vector multiplication can be recursively decomposed according to the following equation.
+\begin{equation*}
+\left( \begin{array}{c|c} 
+U_{11} & U_{12} \\ \hline 
+U_{21} & U_{22} 
+\end{array} \right)	\left( \begin{array}{c} 
+S_{1}\\ \hline 
+S_{2} \end{array} \right) =	\left(\begin{array}{c}
+S'_{1}\\ \hline 
+S'_{2}\end{array}\right)
+\end{equation*}
+We can see that $S'_{1} = U_{11}S_1 + U_{12}S_2$ and $S'_{2} = U_{21}S_1 + U_{22}S_{2}$.  This leaves us with the following tasks.
 \begin{itemize}\compresslist
-  \item bla
+  \item Solve for $U$ given a Hamiltonian describing a quantum system.
+  \item Determine the number of subdivisions required to fit $U_{i,j}$, $S_{i}$, and $S'_{ij}$ into GPU memory.
+  \item Parallelize using MPI.
+  \item Perform matrix-vector multiplication using CUBLAS.
 \end{itemize}
 }
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -137,18 +153,55 @@ bla
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \headerbox{Methodology}{name=method,column=0,below=problem}{
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\begin{itemize}
-  \item bla
-\end{itemize}
+The subdivision of $U$ and $S$ leads to a tree structure where each node has four children, one each to compute the four different matrix-vector products.  Thus at level $l$ we have $4^{l}$ nodes.  For a system of N qubits the GPU will need to hold $2^{2N}$ elements for $U_{ij}$ and $2^{N-L+1}$ for $S_{i}$ and $S_{ij}$.  At level k the sub-matrix size will be $2^{2N-k}$ and the sub-vector $2^{N-k}$.  The NVIDIA Kepler K20 has a memory size of 5 GB.  Assuming we use float precision we solve for the number of levels, $L$, in the tree we need for the sub-matrix to fit in GPU memory.
+\begin{equation*}
+(2^{2N-L} + 2^{N-L+1}) elements \times 2 \frac{bytes}{element} \leq 5 \times 10^6 bytes \rightarrow L \geq N-9
+\end{equation*}
+Our aim is to simulate large systems so in general $4^{N-9}$ will be larger than the number of processors we have available.  Assuming we have $4^{l}$ processors, the remaining $L-l$ subdivisions must be performed on a single processor. This leads to the following algorithm for a single time step in the evolution.
+\begin{algorithm}[H]
+\For{$i = 0$ to $l$}{
+	\eIf{$id == 0$}{
+		Send partitions of $S$ to other processors\;
+	}{
+		Receive partition into $S$
+	}
+}
+Partition $S$ on this processor into $s_{0:2^{L-l}-1}$\;
+\For{$j = 0$ to $2^{L-l}-1$}{
+	\For{$k = 0$ to $2^{L-l}-1$}{
+		$sp_{jk} \leftarrow GPU\_mv\_mult(U_{jk},s_{k})$\;
+	}
+}
+$s_j \leftarrow \sum\limits_{k=0}^{2^{L-l}-1} sp_{jk}$\;
+Recombine $s_j$ into $S$\;
+\For{$i = l$ to $0$}{
+	\eIf{$id == 0$}{
+		Receive partitions\;
+		Recombine partitions into $S$\;
+	}{
+		Send $S$ to 0\;
+	}
+}
+\end{algorithm}
 }
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \headerbox{Complexity Analysis}{name=complex,column=1}{
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\begin{itemize}
-  \item bla
-\end{itemize}
+To analyze complexity we assume a sequential algorithm using CUBLAS on a single Kepler K20 GPU and a system of N qubits represented by a float precision state vector.
+\begin{equation*}
+T_{seq} \propto 4^{N-9}\times(T_{gpu\_mult} +  T_{gpu\_comm})
+\end{equation*}
+Our MPI parallelized algorithm has the following time complexity
+\begin{equation*}
+T_{MCQE} \propto l\times T_{mpi\_comm} + \frac{2^{2(N-9)-l}}{4^{l}}\times(T_{gpu\_mult} + T_{gpu\_comm})
+\end{equation*}
+where $4^{l}$ is the number of MPI ranks available to us.
+Thus our speed up is
+\begin{equation*}
+\frac{l\times T_{mpi\_comm} + 4^{2(N-10-l)}\times(T_{gpu\_mult} + T_{gpu\_comm})}{4^{N-9}\times(T_{gpu\_mult} +  T_{gpu\_comm})}
+\end{equation*}
 }
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
