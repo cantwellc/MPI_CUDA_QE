@@ -125,7 +125,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   \headerbox{Introduction}{name=intro,column=0}{
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-Quantum evolution has traditionally been a difficult thing to simulate on today's classical computers.  This is because the size of the Hilbert space describing a quantum system scales exponentially with the size of the system.  As an example, an ensemble of N simple two level systems (qubits) is described by a state vector of length $2^{N}$.  It is easy to see that this quickly grows to be unmanageable as we try to explore ever larger systems.  At the same time the simulation of such a system is relatively straight forward using either implicit or explicit integration methods.  For a system described by a time independent Hamiltonian the simulation can be accomplished very simply by a number of matrix-vector multiplications.  There exist a number of BLAS libraries that can accomplish this efficiently.  CUBLAS is one such library that performs the multiplication using GPU acceleration.  A major bottleneck in GPU computing is communication time thus we would be well served to attempt to fit the entire unitary evolution matrix ($U$) and state vector ($S$) into GPU memory and avoid as much communication between the CPU and GPU as possible.  For large systems this requires subdividing both $U$ and $S$ into a number of smaller components $U_{ij}$ and $S_{i}$.  The resulting method of solving for $S' = U * S$ lends itself nicely to parallelization using MPI.
+Quantum evolution has traditionally been a difficult thing to simulate on today's classical computers.  This is because the size of the Hilbert space describing a quantum system scales exponentially with the size of the system.  As an example, an ensemble of N simple two level systems (qubits) is described by a state vector of length $2^{N}$.  It is easy to see that this quickly grows to be unmanageable as we try to explore ever larger systems.  At the same time the simulation of such a system is relatively straight forward using either implicit or explicit integration methods.  For a system described by a time independent Hamiltonian the simulation can be accomplished very simply by a number of matrix-vector multiplications.  There exist a number of BLAS libraries that can accomplish this efficiently.  CUBLAS is one such library that performs the multiplication using GPU acceleration.  A major bottleneck in GPU computing is communication time thus we would be well served to attempt to fit the entire unitary evolution matrix ($U$) and state vector ($S$) into GPU memory and avoid as much communication between the CPU and GPU as possible.  For large systems this requires subdividing both $U$ and $S$ into a number of smaller components $U_{ij}$ and $S_{i}$.  The resulting method of solving for $S' = U S$ lends itself nicely to parallelization using MPI.
 }
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -186,9 +186,19 @@ We can see that $S'_{1} = U_{11}S_1 + U_{12}S_2$ and $S'_{2} = U_{21}S_1 + U_{22
 \end{center}
 \begin{multicols}{2}
 The subdivision of $U$ and $S$ leads to a tree structure where each node has four children, one each to compute the four different matrix-vector products.  At level $l$ we have $4^{l}$ nodes.  We must solve for the number of levels we need to fit the sub-matrix and sub-vectors in GPU memory. The NVIDIA Kepler K20 has a memory size of 5 GB.
-\begin{equation*}
-(2^{2N-L} + 2^{N-L+1}) elements \times 2 \frac{bytes}{element} \leq 5 \times 10^6 bytes \rightarrow L \geq N-9
-\end{equation*}
+\begin{eqnarray*}
+2^{2(N-L)+3}+2^{N-L+4} & \leq & 5\times 10^{6} \\
+%Log_{2}(2^{2(N-L)+3}+2^{N-L+4}) & \leq & Log_{2}(5\times 10^{6}) \\
+Log_{2}(2^{N-L+4}(2^{N-L-1}+1)) & \leq & \frac{Log_{10}(5\times 10^{6})}{Log_{10}(2)}\\
+2^{N-L-1}+1 < 2^{N-L} &and& \frac{1}{Log_{10}(2)} < \frac{1}{0.3}\\
+Log_{2}(2^{N-L+4})+Log_{2}(2^{N-L}) & \leq & \frac{1}{0.3}\times(Log_{10}(5)+Log_{10}(10^{6}))\\
+N-L+4+N-L & \leq & 22.3 \\
+%2N-2L+4 & \leq & \frac{1}{0.3}\times(0.7+6) \\
+%2N-2L+4 & \leq & 22.3 \\
+%2L & \geq & 2N + 4 - 22.3 \\
+%L & \geq & N - 9.15 \\
+L & \geq & N - 9
+\end{eqnarray*}
 Our aim is to simulate large systems so in general $4^{N-9}$ will be larger than the number of processors we have available.  Assuming we have $4^{l}$ processors, the remaining $L-l$ subdivisions must be performed on a single processor. This leads to the following algorithm for a single time step in the evolution.
 \columnbreak
 \begin{algorithm}[H]
