@@ -155,7 +155,35 @@ We can see that $S'_{1} = U_{11}S_1 + U_{12}S_2$ and $S'_{2} = U_{21}S_1 + U_{22
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \headerbox{Methodology}{name=method,column=0, span=2, below=intro}{
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-The subdivision of $U$ and $S$ leads to a tree structure where each node has four children, one each to compute the four different matrix-vector products.  Thus at level $l$ we have $4^{l}$ nodes.  For a system of N qubits the GPU will need to hold $2^{2N}$ elements for $U_{ij}$ and $2^{N-L+1}$ for $S_{i}$ and $S_{ij}$.  At level k the sub-matrix size will be $2^{2N-k}$ and the sub-vector $2^{N-k}$.  The NVIDIA Kepler K20 has a memory size of 5 GB.  Assuming we use float precision we solve for the number of levels, $L$, in the tree we need for the sub-matrix to fit in GPU memory.
+The subdivision of $U$ and $S$ leads to a tree structure where each node has four children, one each to compute the four different matrix-vector products.  
+\begin{center}
+\begin{tikzpicture}[level/.style={sibling distance=40mm/#1}]
+\node [circle,draw] (r){\vphantom{A}}
+  child {node (a) {$\vdots$}
+	child {node [circle,draw] (c) {\vphantom{A}}
+		child [grow=left] {node {$\rightarrow$} edge from parent[draw=none]
+			child [grow=left]{node {Level $L$} edge from parent[draw=none]}
+		}
+	}
+    child {node [circle,draw] (d) {\vphantom{A}}}
+    child {node [circle,draw] (e) {\vphantom{A}}}
+    child {node [circle,draw] (f) {\vphantom{A}}}
+  }
+  child {node (g) {$\vdots$}
+  }
+  child {node (h) {$\vdots$}
+  }
+  child {node (i) {$\vdots$}
+  	child {node (j) {} edge from parent[draw=none]
+  		child [grow=right] {node (k) {} edge from parent[draw=none]
+  			child [grow=right] {node {$\left[U_L\right]$ matrix size is $2^{N-L}\times 2^{N-L}$} edge from parent[draw=none]}
+  		}
+  	}
+  };
+  \path (f) -- (j) node [midway] {$\cdots$};
+\end{tikzpicture}
+\end{center}
+At level $l$ we have $4^{l}$ nodes.  We must solve for the number of levels we need to fit the sub-matrix and sub-vectors in GPU memory. The NVIDIA Kepler K20 has a memory size of 5 GB.
 \begin{equation*}
 (2^{2N-L} + 2^{N-L+1}) elements \times 2 \frac{bytes}{element} \leq 5 \times 10^6 bytes \rightarrow L \geq N-9
 \end{equation*}
@@ -185,33 +213,6 @@ Recombine $s_j$ into $S$\;
 	}
 }
 \end{algorithm}
-\begin{center}
-\begin{tikzpicture}[level/.style={sibling distance=40mm/#1}]
-\node [circle,draw] (r){\vphantom{A}}
-  child {node (a) {$\vdots$}
-	child {node [circle,draw] (c) {\vphantom{A}}
-		child [grow=left] {node {$\rightarrow$} edge from parent[draw=none]
-			child [grow=left]{node {Level $L$} edge from parent[draw=none]}
-		}
-	}
-    child {node [circle,draw] (d) {\vphantom{A}}}
-    child {node [circle,draw] (e) {\vphantom{A}}}
-    child {node [circle,draw] (f) {\vphantom{A}}}
-  }
-  child {node (g) {$\vdots$}
-  }
-  child {node (h) {$\vdots$}
-  }
-  child {node (i) {$\vdots$}
-  	child {node (j) {} edge from parent[draw=none]
-  		child [grow=right] {node (k) {} edge from parent[draw=none]
-  			child [grow=right] {node {$\left[U_L\right]$ matrix size is $2^{N-L}\times 2^{N-L}$} edge from parent[draw=none]}
-  		}
-  	}
-  };
-  \path (f) -- (j) node [midway] {$\cdots$};
-\end{tikzpicture}
-\end{center}
 }
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
