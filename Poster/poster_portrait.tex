@@ -130,7 +130,7 @@ Quantum evolution has traditionally been a difficult thing to simulate on today'
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\headerbox{Problem Statement}{name=problem,column=1}{
+\headerbox{Problem Statement}{name=problem,column=1, bottomaligned=intro}{
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 Matrix-vector multiplication can be recursively decomposed according to the following equation.
 \begin{equation*}
@@ -231,7 +231,18 @@ Recombine $s_j$ into $S$\;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\headerbox{Complexity Analysis}{name=complex,column=0, below=method}{
+\headerbox{Expected Results}{name=results,column=1,below=method}{
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Our MCQE algorithm does not use any approximation methods so the result should be exact up to float precision.  The following plot was obtained using a sequential algorithm with CUDA.  We expect for the same input MCQE would produce the same.
+\begin{center}
+\includegraphics[scale=0.3]{graph.png}
+\captionof{figure}{Sequential Quantum State Evolution}
+\end{center}
+}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\headerbox{Complexity Analysis}{name=complex,column=0, below=method, bottomaligned=results}{
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 To analyze complexity we assume a sequential algorithm using CUBLAS on a single Kepler K20 GPU and a system of N qubits represented by a float precision state vector.
 \begin{equation*}
@@ -250,22 +261,12 @@ Thus our speed up is
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\headerbox{Expected Results}{name=results,column=1,below=method}{
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-Out MCQE algorithm does not use any approximation methods so the result should be exact up to float precision.  The following plot was obtained using a sequential algorithm with CUDA.  We expect for the same input MCQE would produce the same.
-\begin{center}
-\includegraphics[scale=0.3]{graph.png}
-\captionof{figure}{Sequential Quantum State Evolution}
-\end{center}
-}
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \headerbox{Future Work}{name=future,column=0, below=complex}{
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 There is a lot of room for optimization.  The following are possible paths for extension of this program.
 \begin{itemize}\compresslist
 	\item Include optimization for non-dense unitary evolution matrices, i.e. sparse, tridiagional, etc.
+	\item Include state truncation based on Hamiltonian characteristics.
 	\item Reduce MPI communication overhead by continuing evolution on the GPU while the CPU handles recombination and partitioning of the sub-vectors.
 	\item Use data compression techniques to reduce memory overhead.
 	\item Add real time rendering of results on the head node.
