@@ -186,46 +186,18 @@ Recombine $s_j$ into $S$\;
 }
 \end{algorithm}
 \begin{tikzpicture}[level/.style={sibling distance=60mm/#1}]
-\node [circle,draw] (z){\vphantom{A}}
+\node [circle,draw] (r){\vphantom{A}}
   child {node [circle,draw] (a) {\vphantom{A}}
-  	child {node [circle,draw] (b) {\vphantom{A}}
-  	}
-  	child {node [circle,draw] (c) {\vphantom{A}}
-  	}
-  	child {node [circle,draw] (d) {\vphantom{A}}
-  	}
-  	child {node [circle,draw] (e) {\vphantom{A}}
-  	}
+  	child {node {$\vdots$}}
+    child {node {$\vdots$}}
+    child {node {$\vdots$}}
+    child {node {$\vdots$}}
   }
-  child {node [circle,draw] (f) {\vphantom{A}}
-  	child {node [circle,draw] (g) {\vphantom{A}}
-  	}
-  	child {node [circle,draw] (h) {\vphantom{A}}
-  	}
-  	child {node [circle,draw] (i) {\vphantom{A}}
-  	}
-  	child {node [circle,draw] (j) {\vphantom{A}}
-  	}
+  child {node [circle,draw] (b) {\vphantom{A}}
   }
-  child {node [circle,draw] (k) {\vphantom{A}}
-  	child {node [circle,draw] (l) {\vphantom{A}}
-  	}
-  	child {node [circle,draw] (m) {\vphantom{A}}
-  	}
-  	child {node [circle,draw] (n) {\vphantom{A}}
-  	}
-  	child {node [circle,draw] (o) {\vphantom{A}}
-  	}
+  child {node [circle,draw] (c) {\vphantom{A}}
   }
-  child {node [circle,draw] (p) {\vphantom{A}}
-  	child {node [circle,draw] (q) {\vphantom{A}}
-  	}
-  	child {node [circle,draw] (r) {\vphantom{A}}
-  	}
-  	child {node [circle,draw] (s) {\vphantom{A}}
-  	}
-  	child {node [circle,draw] (t) {\vphantom{A}}
-  	}
+  child {node [circle,draw] (d) {\vphantom{A}}
   };
 %   child {node [circle,draw] (j) {\vphantom{A}}
 %     child {node [circle,draw] (k) {\vphantom{A}}
