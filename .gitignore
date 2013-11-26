@@ -5,3 +5,5 @@
 *.*~
 *.synctex.*
 *.*_latexmk
+*.dvi
+*.pdf
