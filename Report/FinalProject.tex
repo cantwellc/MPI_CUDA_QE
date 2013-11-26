@@ -74,21 +74,21 @@ This can be parallellized by dividing it into four process, each calculating one
 \end{figure}
 For an N qubit system vector $x$ has $2^{N}$ elements.  At each level we divide the vector into two equal size blocks.  Thus at level $l$ the vector has $2^{N-l}$ elements.  For efficiency we want this vector and the matrix it is being multiplied by to fit in the memory available on the GPU.  The Nvidia Kepler K20 has 5G of on chip memory. Assume a dense matrix and vector with complex double precision elements.  We need 16 bytes to represent a single element.  To store $A$, $x$, and $b$ at level $l$ we need $2^{2(N-l)}+2^{N-l+1}$ elements which gives us 
 \beqnn
-(2^{2(N-L)}+2^{N-L+1}) elements \times 2^{4} \frac{bytes}{element} = 2^{2(N-L)+4}+2^{N-L+5} bytes
+(2^{2(N-L)}+2^{N-L+1}) elements \times 8 \frac{bytes}{element} = 2^{2(N-L)+3}+2^{N-L+4} bytes
 \eneqnn
 To determine the number of levels we must go to for the data to fit in GPU memory we have:
 \beqynn
-2^{2(N-L)+4}+2^{N-L+5} & \leq & 5\times 10^{6} \\
-Log_{2}(2^{2(N-L)+4}+2^{N-L+5}) & \leq & Log_{2}(5\times 10^{6}) \\
-Log_{2}(2^{N-L+5}(2^{2(N-L)+4-(N-L+5)}+1)) & \leq & \frac{Log_{10}(5\times 10^{6})}{Log_{10}(2)}\\
+2^{2(N-L)+3}+2^{N-L+4} & \leq & 5\times 10^{6} \\
+Log_{2}(2^{2(N-L)+3}+2^{N-L+4}) & \leq & Log_{2}(5\times 10^{6}) \\
+Log_{2}(2^{N-L+4}(2^{2(N-L)+3-(N-L+4)}+1)) & \leq & \frac{Log_{10}(5\times 10^{6})}{Log_{10}(2)}\\
 2^{N-L-1}+1 < 2^{N-L} &and& \frac{1}{Log_{10}(2)} < \frac{1}{0.3}\\
-Log_{2}(2^{N-L+5})+Log_{2}(2^{N-L}) & \leq & \frac{1}{0.3}\times(Log_{10}(5)+Log_{10}(10^{6}))\\
-N-L+5+N-L & \leq & \frac{1}{0.3}\times(Log_{10}(5)+Log_{10}(10^{6})) \\
-2N-2L+5 & \leq & \frac{1}{0.3}\times(0.7+6) \\
-2N-2L+5 & \leq & 22.3 \\
-2L & \geq & 2N + 5 - 22.3 \\
-L & \geq & N - 8.7 \\
-L & \geq & N - 8
+Log_{2}(2^{N-L+4})+Log_{2}(2^{N-L}) & \leq & \frac{1}{0.3}\times(Log_{10}(5)+Log_{10}(10^{6}))\\
+N-L+4+N-L & \leq & \frac{1}{0.3}\times(Log_{10}(5)+Log_{10}(10^{6})) \\
+2N-2L+4 & \leq & \frac{1}{0.3}\times(0.7+6) \\
+2N-2L+4 & \leq & 22.3 \\
+2L & \geq & 2N + 4 - 22.3 \\
+L & \geq & N - 9.15 \\
+L & \geq & N - 9
 \eneqynn
 This gives us a total number of processes of
 \beq
@@ -107,16 +107,7 @@ $U[0:4^{L-M}] \leftarrow$ submatrix indices to be used for state evolution\;
 }
 \While{$step \neq nsteps$}{
 	$l \leftarrow 0$\;
-	\While{$(l \neq M)$}{
-		\eIf{$(master)$}{
-			$children[0:2] \leftarrow$ MPI communicator subgroup\;
-			$p[0:3] \leftarrow partition(state,4)$\;
-			$send(p,children)$\;
-		}{
-			$state \leftarrow receive(parent)$;
-		}
-		$l++$\;
-	}
+	parition(state)\;
 	$s[0:4^{L-M}] \leftarrow partition(state,4^{L-M})$\;
 	$n \leftarrow 0$\;
 	\While{$(n \neq 4^{L-M})$}{
@@ -143,28 +134,65 @@ $U[0:4^{L-M}] \leftarrow$ submatrix indices to be used for state evolution\;
 }
 \end{algorithm}
 
-\section{Speed Up}
+\begin{algorithm}
+$partition(state)${
+	\While{$(l \neq M)$}{
+			\eIf{$(master)$}{
+				$children[0:2] \leftarrow$ MPI communicator subgroup\;
+				$p[0:3] \leftarrow partition(state,4)$\;
+				$send(p,children)$\;
+			}{
+				$state \leftarrow receive(parent)$;
+			}
+			$l++$\;
+		}
+	}
+\end{algorithm}
+
+\section{Complexity Analysis}
+To analyze complexity we assume a sequential algorithm using a single Kepler K20 GPU and a system size of N qubits.
+\beq
+T_{seq}  \propto  2^{N-10}\times(T_{gpu\_mult} +  T_{gpu\_comm})
+\eneq
+For our parallel MCQE algorithm we have the following.
+\beq
+T_{MCQE} \propto 2l\times T_{mpi\_comm} + \frac{2^{N-l-9}}{4^{l}}\times(T_{gpu\_mult} + T_{gpu\_comm})
+\eneq
+where $4^{l}$ is the number of MPI ranks available to us.  In general $T_{mpi\_comm}$ will depend on the current tree level as at lower levels there will be less data to transfer.  This leads to a speedup of 
+\beq
+\frac{l\times T_{mpi\_comm} + 2^{N-2l-10}\times(T_{gpu\_mult} + T_{gpu\_comm})}{2^{N-10}\times(T_{gpu\_mult} +  T_{gpu\_comm})}
+\eneq
+
 \section{Results}
 \section{Scratch}
-Consider a general two-local Hamiltonian $H$ acting on N qubits, labelled $S=\{0\ldots N-1\}$, in an arbitrary superposition state $\ket{\psi}$.
-\beqy
-\label{H0}H&=&\sum\limits_{i=0}^{N-1}(h_i+\sum\limits_{j\neq i}^{N-1}h_{ij})\\
-\label{S0}\ket{\psi}&=&\sum\limits_{j=0}^{2^{N}-1} a_{j} \ket{j}
-\eneqy
-where $\ket{j}= \ket{j_{N-1}\ldots j_0}$ and $j_{k}=0,1$.  We divide the qubits into two subsets, $S^{(1)}=\{0\ldots m-1\}$ and $S^{(2)}=\{m\ldots N-1\}$.  This gives us
+To reduce the overhead caused by MPI communication we can take advantage of the fact that the GPU and CPU can run independently.  We assume that $\delta t$ is small enough that the subvector being used at a given node $k$ does not change much over some number of time steps $N_{steps}$.  While the CPU is handling MPI communication and recombining results the GPU can continue state evolution.  After $N_{steps}$ the recombined and subsequently partitioned state vector is returned to the node.  We can find the error between the vector used at node $k$ and what the vector should have been.  We can then apply an error correcting procedure and repeat the process.
 \bseq
 \beqy
-\ket{j} &=& \ket{j_{N-1}\ldots j_{m}}\ket{j_{m-1}\ldots j_{0}}\\
-\ket{j} &=& \ket{l_{j}^{(2)}}\ket{l_{j}^{(1)}}
+S' 	&=& U^{N_{steps}}(S+\epsilon)\\
+	&=& U^{N_{steps}}S + U^{N_{steps}}\epsilon\\
 \eneqy
 \enseq
-It is easy to see that for a given $j$, $l_{j}^{(1)}=(j\mod{2^{m}})$ and $l_{j}^{(2)}=floor(j/2^{m})$. Using these definitions we write
-\bseq
-\beqy
-\forall k\in [0,2^{m}-1]: l_{k}^{(1)}=l_{2^{m}+k}^{(1)}=\ldots =l_{2^{N-m-1}2^{m}+k}^{(1)}\equiv k^{(1)}\\
-l_{0}^{(2)}=l_{1}^{(2)}=\ldots =l_{2^{m-1}}
-\eneqy
-\enseq
+From the above we can see that if, after node $k$ receives the results of recombination and repartitioning, we calculate $\epsilon$ and apply a correction we can retreive the correct result.  While applying U $N_{steps}$ times would retreive the exact result this would not provide any speedup.  But because $\epsilon$ is small we can probably get away with less.
+
+%Consider a general two-local Hamiltonian $H$ acting on N qubits, labelled $S=\{0\ldots N-1\}$, in an arbitrary superposition state $\ket{\psi}$.
+%\beqy
+%\label{H0}H&=&\sum\limits_{i=0}^{N-1}(h_i+\sum\limits_{j\neq i}^{N-1}h_{ij})\\
+%\label{S0}\ket{\psi}&=&\sum\limits_{j=0}^{2^{N}-1} a_{j} \ket{j}
+%\eneqy
+%where $\ket{j}= \ket{j_{N-1}\ldots j_0}$ and $j_{k}=0,1$.  We divide the qubits into two subsets, $S^{(1)}=\{0\ldots m-1\}$ and $S^{(2)}=\{m\ldots N-1\}$.  This gives us
+%\bseq
+%\beqy
+%\ket{j} &=& \ket{j_{N-1}\ldots j_{m}}\ket{j_{m-1}\ldots j_{0}}\\
+%\ket{j} &=& \ket{l_{j}^{(2)}}\ket{l_{j}^{(1)}}
+%\eneqy
+%\enseq
+%It is easy to see that for a given $j$, $l_{j}^{(1)}=(j\mod{2^{m}})$ and $l_{j}^{(2)}=floor(j/2^{m})$. Using these definitions we write
+%\bseq
+%\beqy
+%\forall k\in [0,2^{m}-1]: l_{k}^{(1)}=l_{2^{m}+k}^{(1)}=\ldots =l_{2^{N-m-1}2^{m}+k}^{(1)}\equiv k^{(1)}\\
+%l_{0}^{(2)}=l_{1}^{(2)}=\ldots =l_{2^{m-1}}
+%\eneqy
+%\enseq
 %Substituting into ($\ref{S0}$) and expanding the summation we get
 %\beq
 %\ket{\psi}=a_{0}\ket{l_{0}^{(2)}}\ket{l_{0}^{(1)}} + a_{1}\ket{l_{1}^{(2)}}\ket{l_{1}^{(1)}} + \ldots + a_{2^{N}-1}\ket{l_{2^{N}-1}^{(2)}}\ket{l_{2^{N}-1}^{(1)}}

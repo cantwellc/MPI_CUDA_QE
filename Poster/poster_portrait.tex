@@ -1,4 +1,4 @@
-\documentclass[portrait,final,paperwidth=24in,paperheight=36in,fontscale=0.5]{baposter}
+\documentclass[portrait,paperwidth=24in,paperheight=36in,fontscale=0.5]{baposter}
 
 \usepackage{calc}
 \usepackage{graphicx}
@@ -13,6 +13,8 @@
 \usepackage{graphicx}
 \usepackage{multicol}
 \usepackage{algorithm2e}
+\usepackage{tikz}
+\usetikzlibrary{trees}
 
 %\usepackage{times}
 %\usepackage{helvet}
@@ -220,6 +222,26 @@ Thus our speed up is
 \begin{itemize}
   \item bla
 \end{itemize}
+\begin{tikzpicture}[
+  level 1/.style={sibling distance=60pt},
+  level 3/.style={sibling distance=40pt}
+]
+\coordinate
+child {node (v2) {V2}
+  child {node[text width=2.2em,align=center] {SOV\\VC} 
+    child {node {German}} 
+    child {node {Dutch}}}
+  child[missing]
+}
+child {
+  child[missing]
+  child {node {SVO} 
+    child {node (dan) {Danish}} 
+    child {node {English}} 
+    child {node {French}}}
+};
+\draw (v2) -- (dan);
+\end{tikzpicture}
 }
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \end{poster}
