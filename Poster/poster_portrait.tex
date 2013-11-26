@@ -287,8 +287,12 @@ Out MCQE algorithm does not use any approximation methods so the result should b
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \headerbox{Future Work}{name=future,column=1, below=results}{
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\begin{itemize}
-  \item bla
+There is a lot of room for optimization.  The following are possible paths for extension of this program.
+\begin{itemize}\compresslist
+	\item Include optimization for non-dense unitary evolution matrices, i.e. sparse, tridiagional, etc.
+	\item Reduce MPI communication overhead by continuing evolution on the GPU while the CPU handles recombination and partitioning of the sub-vectors.
+	\item Use data compression techniques to reduce memory overhead.
+	\item Add real time rendering of results on the head node.
 \end{itemize}
 }
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
