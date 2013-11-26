@@ -143,7 +143,7 @@ S_{2} \end{array} \right) =	\left(\begin{array}{c}
 S'_{1}\\ \hline 
 S'_{2}\end{array}\right)
 \end{equation*}
-We can see that $S'_{1} = U_{11}S_1 + U_{12}S_2$ and $S'_{2} = U_{21}S_1 + U_{22}S_{2}$.  This leaves us with the following tasks.
+We can see that $S'_{1} = U_{11}S_1 + U_{12}S_2$ and $S'_{2} = U_{21}S_1 + U_{22}S_{2}$.  We label each of the four matrix-vector multiplications $S'_{ij}$.  This leaves us with the following tasks.
 \begin{itemize}\compresslist
   \item Solve for $U$ given a Hamiltonian describing a quantum system.
   \item Determine the number of subdivisions required to fit $U_{i,j}$, $S_{i}$, and $S'_{ij}$ into GPU memory.
@@ -212,7 +212,7 @@ Our aim is to simulate large systems so in general $4^{N-9}$ will be larger than
 Partition $S$ on this processor into $s_{0:2^{L-l}-1}$\;
 \For{$j = 0$ to $2^{L-l}-1$}{
 	\For{$k = 0$ to $2^{L-l}-1$}{
-		$sp_{jk} \leftarrow GPU\_mv\_mult(U_{jk},s_{k})$\;
+		$sp_{jk} \leftarrow gpu\_mv\_mult(U_{jk},s_{k})$\;
 	}
 }
 $s_j \leftarrow \sum\limits_{k=0}^{2^{L-l}-1} sp_{jk}$\;
@@ -225,6 +225,7 @@ Recombine $s_j$ into $S$\;
 		Send $S$ to 0\;
 	}
 }
+\caption{MCQE Single Time Step}
 \end{algorithm}
 \end{multicols}
 }
