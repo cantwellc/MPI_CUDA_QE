@@ -1,0 +1,7 @@
+# LaTeX Auxiliary files #
+#########################
+*.aux
+*.log
+*.*~
+*.synctex.*
+*.*_latexmk
