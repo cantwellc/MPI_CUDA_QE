@@ -15,13 +15,14 @@
 \usepackage{algorithm2e}
 \usepackage{fancybox}
 \usepackage{tikz}
+\usepackage{caption}
 
 %\usepackage{times}
 %\usepackage{helvet}
 %\usepackage{bookman}
 \usepackage{palatino}
 
-\newcommand{\captionfont}{\footnotesize}
+%\newcommand{\captionfont}{\footnotesize}
 
 \graphicspath{{}{../Images/}}
 \usetikzlibrary{calc}
@@ -155,7 +156,6 @@ We can see that $S'_{1} = U_{11}S_1 + U_{12}S_2$ and $S'_{2} = U_{21}S_1 + U_{22
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \headerbox{Methodology}{name=method,column=0, span=2, below=intro}{
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-The subdivision of $U$ and $S$ leads to a tree structure where each node has four children, one each to compute the four different matrix-vector products.  
 \begin{center}
 \begin{tikzpicture}[level/.style={sibling distance=40mm/#1}]
 \node [circle,draw] (r){\vphantom{A}}
@@ -182,12 +182,15 @@ The subdivision of $U$ and $S$ leads to a tree structure where each node has fou
   };
   \path (f) -- (j) node [midway] {$\cdots$};
 \end{tikzpicture}
+\captionof{figure}{Matrix Vector Multiplication Subdivision Tree Structure}
 \end{center}
-At level $l$ we have $4^{l}$ nodes.  We must solve for the number of levels we need to fit the sub-matrix and sub-vectors in GPU memory. The NVIDIA Kepler K20 has a memory size of 5 GB.
+\begin{multicols}{2}
+The subdivision of $U$ and $S$ leads to a tree structure where each node has four children, one each to compute the four different matrix-vector products.  At level $l$ we have $4^{l}$ nodes.  We must solve for the number of levels we need to fit the sub-matrix and sub-vectors in GPU memory. The NVIDIA Kepler K20 has a memory size of 5 GB.
 \begin{equation*}
 (2^{2N-L} + 2^{N-L+1}) elements \times 2 \frac{bytes}{element} \leq 5 \times 10^6 bytes \rightarrow L \geq N-9
 \end{equation*}
 Our aim is to simulate large systems so in general $4^{N-9}$ will be larger than the number of processors we have available.  Assuming we have $4^{l}$ processors, the remaining $L-l$ subdivisions must be performed on a single processor. This leads to the following algorithm for a single time step in the evolution.
+\columnbreak
 \begin{algorithm}[H]
 \For{$i = 0$ to $l$}{
 	\eIf{$id == 0$}{
@@ -213,6 +216,7 @@ Recombine $s_j$ into $S$\;
 	}
 }
 \end{algorithm}
+\end{multicols}
 }
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -241,6 +245,7 @@ Thus our speed up is
 Out MCQE algorithm does not use any approximation methods so the result should be exact up to float precision.  The following plot was obtained using a sequential algorithm with CUDA.  We expect for the same input MCQE would produce the same.
 \begin{center}
 \includegraphics[scale=0.3]{graph.png}
+\captionof{figure}{Sequential Quantum State Evolution}
 \end{center}
 }
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
