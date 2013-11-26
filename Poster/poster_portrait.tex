@@ -185,20 +185,30 @@ Recombine $s_j$ into $S$\;
 	}
 }
 \end{algorithm}
-\begin{tikzpicture}[level/.style={sibling distance=60mm/#1}]
+\begin{tikzpicture}[level/.style={sibling distance=40mm/#1}]
 \node [circle,draw] (r){\vphantom{A}}
-  child {node [circle,draw] (a) {\vphantom{A}}
-  	child {node {$\vdots$}}
-    child {node {$\vdots$}}
-    child {node {$\vdots$}}
-    child {node {$\vdots$}}
+  child {node (a) {$\vdots$}
+	child {node [circle,draw] (c) {\vphantom{A}}
+		child [grow=left] {node {$\rightarrow$} edge from parent[draw=none]
+			child [grow=left]{node {Level $L$} edge from parent[draw=none]}
+		}
+	}
+    child {node [circle,draw] (d) {\vphantom{A}}}
+    child {node [circle,draw] (e) {\vphantom{A}}}
+    child {node [circle,draw] (f) {\vphantom{A}}}
   }
-  child {node [circle,draw] (b) {\vphantom{A}}
+  child {node (g) {$\vdots$}
   }
-  child {node [circle,draw] (c) {\vphantom{A}}
+  child {node (h) {$\vdots$}
   }
-  child {node [circle,draw] (d) {\vphantom{A}}
+  child {node (i) {$\vdots$}
+  	child {node (j) {} edge from parent[draw=none]
+  		child [grow=right] {node (k) {} edge from parent[draw=none]
+  			child [grow=right] {node {$\left[U_L\right]$ matrix size is $2^{N-L}\times 2^{N-L}$} edge from parent[draw=none]}
+  		}
+  	}
   };
+  \path (f) -- (j) node [midway] {$\cdots$};
 %   child {node [circle,draw] (j) {\vphantom{A}}
 %     child {node [circle,draw] (k) {\vphantom{A}}
 %       child {node {$\vdots$}}
